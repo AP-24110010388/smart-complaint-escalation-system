@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Smart Escalation System</title>
+    <style>
+        /* Modern Attractive Styles */
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --success: #10b981;
+            --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 40px;
+            border-radius: 24px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        h2, h3 { color: #1f2937; margin-bottom: 20px; }
+
+        input, select {
+            width: 100%;
+            padding: 14px;
+            margin: 10px 0;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 15px;
+            transition: border-color 0.3s;
+            box-sizing: border-box;
+        }
+
+        input:focus { border-color: var(--primary); outline: none; }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.3s;
+            margin-top: 15px;
+        }
+
+        button:hover { background: var(--primary-hover); transform: translateY(-2px); }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .stat-box {
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 15px;
+            font-size: 14px;
+            color: #374151;
+        }
+
+        .stat-box b { font-size: 18px; color: var(--primary); display: block; }
+
+        .complaint-item {
+            background: #ffffff;
+            border: 1px solid #f1f5f9;
+            padding: 20px;
+            margin-top: 15px;
+            border-radius: 16px;
+            text-align: left;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            border-left: 6px solid var(--primary);
+        }
+
+        .badge {
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 50px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .pending { background: #fef3c7; color: #92400e; }
+        .resolved { background: #d1fae5; color: #065f46; }
+
+        .admin-details {
+            background: #f8fafc;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .hidden { display: none; }
+        
+        .logout-btn { background: transparent; color: #ef4444; border: 1px solid #ef4444; margin-top: 25px; }
+        .logout-btn:hover { background: #fef2f2; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div id="auth-ui">
+        <h2 id="auth-title">Welcome Back</h2>
+        <input type="email" id="email" placeholder="Email Address">
+        <input type="password" id="password" placeholder="Password">
+        
+        <div id="reg-fields" class="hidden">
+            <input type="text" id="fullName" placeholder="Full Name">
+            <input type="text" id="phone" placeholder="Phone Number">
+            <select id="gender"><option value="">Select Gender</option><option value="Male">Male</option><option value="Female">Female</option></select>
+            <input type="date" id="dob">
+            <select id="role">
+                <option value="User">User (Citizen)</option>
+                <option value="Staff">Staff (Technician)</option>
+                <option value="Admin">Admin (Manager)</option>
+            </select>
+        </div>
+
+        <button onclick="handleAuth()" id="auth-btn">Log In</button>
+        <p style="margin-top:20px; font-size:14px; color:#6b7280;">
+            <a href="javascript:void(0)" onclick="toggle()" id="toggle-link" style="color:var(--primary); text-decoration:none; font-weight:600;">Create an account</a>
+        </p>
+    </div>
+
+    <div id="dash-ui" class="hidden">
+        <div style="font-size: 12px; font-weight: bold; color: var(--primary); letter-spacing: 1px;" id="role-text"></div>
+        <h2 id="welcome" style="margin-top:5px;">Hello!</h2>
+        
+        <div id="stats-area" class="stats-container hidden">
+            <div class="stat-box">Total<b id="s-total">0</b></div>
+            <div class="stat-box">Pending<b id="s-pending">0</b></div>
+        </div>
+
+        <div id="user-form" class="hidden" style="background:#f9fafb; padding:20px; border-radius:15px; margin-bottom:20px;">
+            <h4 style="margin-top:0;">New Complaint</h4>
+            <input type="text" id="cTitle" placeholder="Describe the problem">
+            <input type="text" id="cArea" placeholder="Location (e.g., Room 101)">
+            <button onclick="addComp()" style="background: var(--success);">Submit Complaint</button>
+        </div>
+
+        <div id="list-container"></div>
+        <button onclick="logout()" class="logout-btn">Log Out</button>
+    </div>
+</div>
+
+<script>
+    const API = "http://localhost:5000";
+    let isLogin = true;
+
+    function toggle() {
+        isLogin = !isLogin;
+        document.getElementById("auth-title").innerText = isLogin ? "Welcome Back" : "Create Account";
+        document.getElementById("auth-btn").innerText = isLogin ? "Log In" : "Register";
+        document.getElementById("reg-fields").classList.toggle("hidden", isLogin);
+        document.getElementById("toggle-link").innerText = isLogin ? "Create an account" : "Back to Login";
+    }
+
+    async function handleAuth() {
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
+        const path = isLogin ? "/login" : "/register";
+        
+        let body = { email, password };
+        if(!isLogin) {
+            body = { ...body, 
+                fullName: document.getElementById("fullName").value,
+                phone: document.getElementById("phone").value,
+                gender: document.getElementById("gender").value,
+                dob: document.getElementById("dob").value,
+                role: document.getElementById("role").value
+            };
+        }
+
+        try {
+            const res = await fetch(API + path, {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body)
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                if (isLogin) {
+                    localStorage.setItem("role", data.role);
+                    localStorage.setItem("name", data.fullName);
+                    localStorage.setItem("email", data.email);
+                    localStorage.setItem("phone", data.phone);
+                    loadDashboard();
+                } else { alert("Account Ready!"); toggle(); }
+            } else { alert(data.error || data.message); }
+        } catch(e) { alert("Server Connection Failed"); }
+    }
+
+    async function loadDashboard() {
+        const role = localStorage.getItem("role");
+        const name = localStorage.getItem("name");
+        const email = localStorage.getItem("email");
+
+        document.getElementById("auth-ui").classList.add("hidden");
+        document.getElementById("dash-ui").classList.remove("hidden");
+        document.getElementById("welcome").innerText = "Hello, " + name;
+        document.getElementById("role-text").innerText = role.toUpperCase();
+
+        document.getElementById("stats-area").classList.toggle("hidden", role === "User");
+        if(role !== "User") {
+            const sRes = await fetch(API + "/stats");
+            const s = await sRes.json();
+            document.getElementById("s-total").innerText = s.total;
+            document.getElementById("s-pending").innerText = s.pending;
+        }
+
+        document.getElementById("user-form").classList.toggle("hidden", role !== "User");
+
+        const lRes = await fetch(API + "/complaints");
+        const list = await lRes.json();
+        const container = document.getElementById("list-container");
+        container.innerHTML = "<h3 style='text-align:left;'>Recent Logs</h3>";
+
+        list.forEach(c => {
+            if (role !== "User" || c.userEmail === email) {
+                const solveBtn = (role === "Staff" || role === "Admin") && c.status === "Pending" 
+                    ? `<button onclick="solve('${c._id}')" style="background:var(--success); padding:8px; font-size:12px; margin-top:10px;">Resolve</button>` : "";
+                
+                const adminInfo = (role === "Admin") ? `
+                    <div class="admin-details">
+                        <b>User:</b> ${c.submittedBy} | <b>Phone:</b> ${c.userPhone}<br>
+                        <b>Date:</b> ${new Date(c.createdAt).toLocaleDateString()}
+                    </div>` : "";
+
+                container.innerHTML += `
+                    <div class="complaint-item">
+                        <span class="badge ${c.status.toLowerCase()}">${c.status}</span>
+                        <p style="margin:10px 0 2px 0;"><b>${c.title}</b></p>
+                        <p style="margin:0; font-size:13px; color:#6b7280;">Location: ${c.area}</p>
+                        ${adminInfo}
+                        ${solveBtn}
+                    </div>`;
+            }
+        });
+    }
+
+    async function addComp() {
+        const title = document.getElementById("cTitle").value;
+        const area = document.getElementById("cArea").value;
+        await fetch(API + "/add-complaint", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+                title, area, submittedBy: localStorage.getItem("name"), 
+                userEmail: localStorage.getItem("email"), userPhone: localStorage.getItem("phone")
+            })
+        });
+        document.getElementById("cTitle").value = "";
+        document.getElementById("cArea").value = "";
+        loadDashboard();
+    }
+
+    async function solve(id) {
+        await fetch(`${API}/resolve/${id}`, { method: "PUT" });
+        loadDashboard();
+    }
+
+    function logout() { localStorage.clear(); location.reload(); }
+    if (localStorage.getItem("role")) loadDashboard();
+</script>
+</body>
+</html>
